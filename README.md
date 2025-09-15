@@ -1,9 +1,9 @@
-# Kiyu flutter code generator
+# Flutter code generator
 
 - Install
 dev_dependencies:
     flutter_code_generators:
-        path: /Volumes/Data/Project/KiyuFlutterCodeGenerator/kiyu_flutter_code_generator/generators
+        url: https://github.com/nguyenkieuanhtuan/flutter_code_generator.git
 
 - Run
     dart run build_runner build
