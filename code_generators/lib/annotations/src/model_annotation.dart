@@ -1,15 +1,7 @@
-const KiyuModelOptionDrift = 'drift';
-const KiyuModelOptionFirebase = 'firebase';
-const KiyuModelOptionServer = 'server';
+enum BaseModelOption { drift, realtime, server, firestore }
 
-class KiyuModel {  
-  const KiyuModel({this.options = const [
-    KiyuModelOptionDrift,
-    KiyuModelOptionFirebase,
-    KiyuModelOptionServer
-  ]});  
+class BaseModel {
+  const BaseModel({this.options = const [BaseModelOption.firestore]});
 
-  final List<String> options;
+  final List<BaseModelOption> options;
 }
-
-

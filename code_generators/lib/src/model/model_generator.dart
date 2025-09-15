@@ -6,11 +6,11 @@ import 'package:build/src/builder/build_step.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:source_gen/source_gen.dart';
 
-import '../annotations/annotations.dart';
+import '../../annotations/annotations.dart';
 
-import 'model_visitor.dart';
+import '../model_visitor.dart';
 
-class ModelGenerator extends GeneratorForAnnotation<KiyuModel> {
+class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
   @override
   String generateForAnnotatedElement(
       Element element, ConstantReader annotation, BuildStep buildStep) {
@@ -39,7 +39,7 @@ class ModelGenerator extends GeneratorForAnnotation<KiyuModel> {
     final generateFromMap = generateFromMapMethod(visitor);
     buffer.writeln(generateFromMap);
 
-    if (options.contains(KiyuModelOptionDrift)) {
+    if (options.contains(BaseModelOption.drift)) {
       final generateDriftTable = generateDriftTableMethod(visitor);
       buffer.writeln(generateDriftTable);
 
@@ -301,10 +301,9 @@ class ModelGenerator extends GeneratorForAnnotation<KiyuModel> {
     final modelClassName = _getDataTypeInListRegex(dataType);
     final className = '${modelClassName}Items';
 
-
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
-    
+
     buffer.writeln('class $className {');
     buffer.writeln('final $dataType items;');
     buffer.writeln('$className({required this.items});');
@@ -329,7 +328,7 @@ factory $className.fromJson(Map<String, Object?> json) {
     };
     return json;
   }''');
-    
+
     buffer.writeln('''
 static JsonTypeConverter<$className, String> converter =
       TypeConverter.json(
@@ -365,9 +364,10 @@ static JsonTypeConverter<$className, String> converter =
           : dataField.name;
       // final isModel = dataField.isModel;
       if (dataField.isListModel) {
-        final model = _getDataTypeInListRegex(dataField.type);        
-        buffer.writeln('$fieldName: ${isNullable ? 'Value(${model}Items(items: instance.$fieldName))' : '${model}Items(items: instance.$fieldName)'},');
-      }else if (fieldName == visitor.idField) {
+        final model = _getDataTypeInListRegex(dataField.type);
+        buffer.writeln(
+            '$fieldName: ${isNullable ? 'Value(${model}Items(items: instance.$fieldName))' : '${model}Items(items: instance.$fieldName)'},');
+      } else if (fieldName == visitor.idField) {
         buffer.writeln(
             '$fieldName:  ${isNullable ? 'Value(id ?? instance.$fieldName)' : 'id ?? instance.$fieldName'},');
       } else {
@@ -395,10 +395,9 @@ static JsonTypeConverter<$className, String> converter =
           : dataField.name;
       // final isModel = dataField.isModel;
 
-      if(dataField.isListModel){
+      if (dataField.isListModel) {
         buffer.writeln('$fieldName: data.$fieldName.items,');
-      }
-      else{
+      } else {
         buffer.writeln('$fieldName: data.$fieldName,');
       }
     }

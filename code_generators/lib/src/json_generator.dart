@@ -8,8 +8,7 @@ import 'package:source_gen/source_gen.dart';
 
 import '../annotations/src/model_annotation.dart';
 
-
-class JsonGenerator extends GeneratorForAnnotation<KiyuModel> {
+class JsonGenerator extends GeneratorForAnnotation<BaseModel> {
   @override
   String generateForAnnotatedElement(
     Element element, // Represent a class in this case.
@@ -52,21 +51,19 @@ class JsonGenerator extends GeneratorForAnnotation<KiyuModel> {
       final fieldName = visitor.dataFields.keys.elementAt(i);
       final isModel = visitor.dataFields.values.elementAt(i).isModel;
       final dataType =
-          visitor.dataFields.values.elementAt(i).type.replaceAll('?', '');      
+          visitor.dataFields.values.elementAt(i).type.replaceAll('?', '');
 
       final mapValue = "json['$fieldName']";
 
-      if(isModel){
+      if (isModel) {
         buffer.writeln(
-        '${visitor.dataFields.keys.elementAt(i)}: ${dataType}.fromJson($mapValue),',
-      );
+          '${visitor.dataFields.keys.elementAt(i)}: ${dataType}.fromJson($mapValue),',
+        );
+      } else {
+        buffer.writeln(
+          '${visitor.dataFields.keys.elementAt(i)}: $mapValue,',
+        );
       }
-      else {
-buffer.writeln(
-        '${visitor.dataFields.keys.elementAt(i)}: $mapValue,',
-      );
-      }
-        
     }
     buffer.writeln(');');
     buffer.toString();
@@ -77,7 +74,7 @@ buffer.writeln(
   // Method to generate fromJSon method
   String generateToJsonMethod(ModelVisitor visitor) {
     // Class name from model visitor
-    final className = visitor.modelClassName;    
+    final className = visitor.modelClassName;
 
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
@@ -91,17 +88,15 @@ buffer.writeln(
       final fieldName = visitor.dataFields.keys.elementAt(i);
       final isModel = visitor.dataFields.values.elementAt(i).isModel;
 
-      if(isModel){
+      if (isModel) {
         buffer.writeln(
-        "'$fieldName': instance.$fieldName.toJson,",
-      );
-      }
-      else {
+          "'$fieldName': instance.$fieldName.toJson,",
+        );
+      } else {
         buffer.writeln(
-        "'$fieldName': instance.$fieldName,",
-      );
+          "'$fieldName': instance.$fieldName,",
+        );
       }
-      
     }
     buffer.writeln('};');
     return buffer.toString();
