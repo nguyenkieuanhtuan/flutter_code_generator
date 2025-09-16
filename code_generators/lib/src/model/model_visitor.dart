@@ -40,6 +40,9 @@ DEALINGS IN THE SOFTWARE. */
 import 'package:analyzer/dart/element/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
+import 'package:source_gen/source_gen.dart';
+
+import '../../annotations/model_annotation.dart';
 
 class DataField {
   final String name;
@@ -121,8 +124,10 @@ class DataField {
 extension FieldElementExtension on FieldElement {
   String get typeName => type.toString().replaceFirst('*', '');
 
-  bool isFieldEnum(FieldElement field) {
-    final fieldType = field.type;
+  String get fieldName => name.startsWith('_') ? name.substring(1) : name;
+
+  bool get isEnum {
+    final fieldType = type;
 
     // 1. Check if the type is a class. Enums are represented as classes.
     if (fieldType is! InterfaceType) {
@@ -140,28 +145,71 @@ extension FieldElementExtension on FieldElement {
     return true;
   }
 
-  bool get isEnum => isFieldEnum(this);
+  bool get isUnique {
+    const checker = TypeChecker.fromRuntime(UniqueField);
 
-  String get _lowerCase => documentationComment?.toLowerCase() ?? '';
-
-  bool get isModel =>
-      _lowerCase.contains('ismodel') || _lowerCase.contains('model');
-  bool get isListModel =>
-      _lowerCase.contains('islist') || _lowerCase.contains('list');
-  bool get isUnique =>
-      _lowerCase.contains('isunique') || _lowerCase.contains('unique');
-
-  String _getStoreTableRegex(String input) {
-    final regex = RegExp(r'Ref\((.*?)\)'); // Biểu thức chính quy
-    final Match? match = regex.firstMatch(input);
-    if (match != null) {
-      return match.group(1) ?? ''; // Trả về group 1 (nội dung trong ngoặc)
-    } else {
-      return '';
-    }
+    return checker.hasAnnotationOf(this);
   }
 
-  String get tableRef => _getStoreTableRegex(documentationComment ?? '');
+  bool isBaseModel(Element element) {
+    const checker = TypeChecker.fromRuntime(BaseModel);
+    return checker.hasAnnotationOf(element);
+  }
+
+  bool get isModel {
+    final fieldType = type;
+    if (fieldType is! InterfaceType) {
+      return false;
+    }
+
+    final fieldClass = fieldType.element;
+    return isBaseModel(fieldClass);
+  }
+
+  bool get isList {
+    final fieldType = type;
+    if (fieldType is! InterfaceType) {
+      return false;
+    }
+
+    return fieldType.element.name == 'List';
+  }
+
+  bool get isListModel {
+    final fieldType = type;
+    if (fieldType is! InterfaceType) {
+      return false;
+    }
+
+    if (fieldType.element.name != 'List') {
+      return false;
+    }
+    // Lấy kiểu dữ liệu bên trong của List
+    final innerType = fieldType.typeArguments.first;
+    if (innerType is! InterfaceType) {
+      return false;
+    }
+
+    // Kiểm tra xem kiểu bên trong có phải là model không
+    final innerClass = innerType.element;
+    return isBaseModel(innerClass);
+  }
+
+  String get tableRef {
+    // 1. Tạo một TypeChecker để tìm kiếm annotation @TableRef
+    const checker = TypeChecker.fromRuntime(TableRef);
+
+    // 2. Lấy đối tượng của annotation (nếu có)
+    final annotation = checker.firstAnnotationOf(this);
+
+    // 3. Nếu không có annotation, trả về chuỗi rỗng
+    if (annotation == null) {
+      return '';
+    }
+
+    // 4. Lấy giá trị của thuộc tính 'name' và trả về
+    return annotation.getField('name')!.toStringValue()!;
+  }
 }
 
 class ModelVisitor extends SimpleElementVisitor<void> {
@@ -190,7 +238,7 @@ class ModelVisitor extends SimpleElementVisitor<void> {
 
   @override
   void visitFieldElement(FieldElement element) {
-    log = '$log visitFieldElement ${DataField.fromElement(element)}';
+    log = '$log visitFieldElement ${element.name} ${element.type.toString()}';
 
     final documentationComment = element.documentationComment ?? '';
 

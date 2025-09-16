@@ -1,5 +1,6 @@
 // ignore_for_file: lines_longer_than_80_chars
 
+import 'package:analyzer/dart/element/type.dart';
 import 'package:build/src/builder/build_step.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:source_gen/source_gen.dart';
@@ -14,11 +15,7 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     final visitor = ModelVisitor();
     element.visitChildren(visitor);
 
-    final options = annotation
-        .read('options')
-        .listValue
-        .map((e) => e.toStringValue())
-        .toList();
+    final options = getOptions(annotation);
 
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
@@ -31,10 +28,10 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     buffer.writeln(generatedExtension);
 
     buffer.writeln('// Map');
-    final toMethod = generateToFirestoreMethod(visitor);
+    final toMethod = generateToMapMethod(visitor);
     buffer.writeln(toMethod);
 
-    final fromMethod = generateFromFirestoreMethod(visitor);
+    final fromMethod = generateFromMapMethod(visitor);
     buffer.writeln(fromMethod);
 
     if (options.contains(BaseModelOptions.firestore)) {
@@ -57,7 +54,22 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     return buffer.toString();
   }
 
-  // Method to generate fromJSon method
+  List<BaseModelOptions> getOptions(ConstantReader annotation) {
+    final optionsReader = annotation.read('options');
+    final optionsList = optionsReader.listValue;
+
+    final selectedOptions = <BaseModelOptions>[];
+    for (final option in optionsList) {
+      // Lấy tên của enum dưới dạng chuỗi
+      final enumName = option.getField('index')!.toIntValue()!;
+      final enumValue = BaseModelOptions.values[enumName];
+      selectedOptions.add(enumValue);
+    }
+
+    return selectedOptions;
+  }
+
+  //MARK:- Extension
   String generateExtensionMethod(ModelVisitor visitor) {
     // Class name from model visitor
     final className = visitor.modelClassName;
@@ -104,6 +116,22 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
   }
 
   //MARK: - Map
+  String toFieldMap(FieldElement field) {
+    final fieldName = field.name;
+
+    if (field.isModel) {
+      return 'instance.$fieldName.toMap()';
+    } else if (field.isListModel) {
+      return 'instance.$fieldName.map((e) => e.toMap()).toList()';
+    } else if (field.isList) {
+      return 'instance.$fieldName';
+    } else if (field.isEnum) {
+      return 'instance.$fieldName.index';
+    }
+
+    return 'instance.$fieldName';
+  }
+
   String generateToMapMethod(ModelVisitor visitor) {
     // Class name from model visitor
     final className = visitor.modelClassName;
@@ -116,21 +144,35 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
         'Map<String, dynamic> _\$${className}ToMap($className instance) {');
 
     buffer.writeln('return {');
-    for (final field in visitor.fields.keys) {
-      final fieldName =
-          field.startsWith('_') ? field.replaceFirst('_', '') : field;
-      final isModel = visitor.fields[field]!.isModel;
-
-      if (isModel) {
-        buffer.writeln("'${fieldName}': instance.$fieldName.toMap(),");
-      } else {
-        buffer.writeln("'${fieldName}': instance.$fieldName,");
-      }
+    for (final field in visitor.fields.values) {
+      final fieldName = field.fieldName;
+      buffer.writeln("'${fieldName}': ${toFieldMap(field)},");
     }
     buffer.writeln('};');
     buffer.writeln('}');
 
     return buffer.toString();
+  }
+
+  String fromFieldMap(FieldElement field) {
+    final fieldName = field.name;
+    final typeName = field.typeName;
+
+    if (field.isModel) {
+      return '$typeName.fromMap(map[\'$fieldName\'])';
+    } else if (field.isListModel) {
+      final innerType =
+          (field.type as InterfaceType).typeArguments.first.toString();
+      return '(map[\'$fieldName\'] as List<dynamic>).map((e) => $innerType.fromMap(e)).toList()';
+    } else if (field.isList) {
+      final innerType =
+          (field.type as InterfaceType).typeArguments.first.toString();
+      return '(map[\'$fieldName\'] as List<dynamic>).map((e) => e as $innerType).toList()';
+    } else if (field.isEnum) {
+      return '$typeName.values[map[\'$fieldName\'] as int]';
+    }
+    // Trường hợp DocumentReference hoặc các loại dữ liệu khác
+    return 'map[\'$fieldName\'] as $typeName';
   }
 
   String generateFromMapMethod(ModelVisitor visitor) {
@@ -140,25 +182,16 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
 
-    // toMap
-    buffer.writeln('// From Map Method');
+    // fromMap
     buffer.writeln(
         '$className _\$${className}FromMap(Map<String,dynamic> map) {');
 
     buffer.writeln('try {');
 
     buffer.writeln('return ${className}(');
-    for (final field in visitor.fields.keys) {
-      final fieldName =
-          field.startsWith('_') ? field.replaceFirst('_', '') : field;
-      final isModel = visitor.fields[field]!.isModel;
-      final type = visitor.fields[field]!.type;
-
-      if (isModel) {
-        buffer.writeln("$fieldName: ${type}.fromMap(map['${fieldName}']),");
-      } else {
-        buffer.writeln("$fieldName: map['${fieldName}'],");
-      }
+    for (final field in visitor.fields.values) {
+      final fieldName = field.fieldName;
+      buffer.writeln('$fieldName: ${fromFieldMap(field)},');
     }
     buffer.writeln(');');
 
@@ -172,6 +205,22 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
   }
 
   //MARK: - Firestore
+  String toFieldFirestore(FieldElement field) {
+    final fieldName = field.name;
+
+    if (field.isModel) {
+      return 'instance.$fieldName.toFirestore()';
+    } else if (field.isListModel) {
+      return 'instance.$fieldName.map((e) => e.toFirestore()).toList()';
+    } else if (field.isList) {
+      return 'instance.$fieldName';
+    } else if (field.isEnum) {
+      return 'instance.$fieldName.index';
+    }
+
+    return 'instance.$fieldName';
+  }
+
   String generateToFirestoreMethod(ModelVisitor visitor) {
     // Class name from model visitor
     final className = visitor.modelClassName;
@@ -184,21 +233,35 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
         'Map<String, dynamic> _\$${className}ToFirestore($className instance) {');
 
     buffer.writeln('return {');
-    for (final field in visitor.fields.keys) {
-      final fieldName =
-          field.startsWith('_') ? field.replaceFirst('_', '') : field;
-      final isModel = visitor.fields[field]!.isModel;
-
-      if (isModel) {
-        buffer.writeln("'${fieldName}': instance.$fieldName.toFirestore(),");
-      } else {
-        buffer.writeln("'${fieldName}': instance.$fieldName,");
-      }
+    for (final field in visitor.fields.values) {
+      final fieldName = field.fieldName;
+      buffer.writeln("'${fieldName}': ${toFieldFirestore(field)},");
     }
     buffer.writeln('};');
     buffer.writeln('}');
 
     return buffer.toString();
+  }
+
+  String fromFieldFirestore(FieldElement field) {
+    final fieldName = field.name;
+    final typeName = field.typeName;
+
+    if (field.isModel) {
+      return '$typeName.fromFirestore(map[\'$fieldName\'])';
+    } else if (field.isListModel) {
+      final innerType =
+          (field.type as InterfaceType).typeArguments.first.toString();
+      return '(map[\'$fieldName\'] as List<dynamic>).map((e) => $innerType.fromFirestore(e)).toList()';
+    } else if (field.isList) {
+      final innerType =
+          (field.type as InterfaceType).typeArguments.first.toString();
+      return '(map[\'$fieldName\'] as List<dynamic>).map((e) => e as $innerType).toList()';
+    } else if (field.isEnum) {
+      return '$typeName.values[map[\'$fieldName\'] as int]';
+    }
+    // Trường hợp DocumentReference hoặc các loại dữ liệu khác
+    return 'map[\'$fieldName\'] as $typeName';
   }
 
   String generateFromFirestoreMethod(ModelVisitor visitor) {
@@ -209,25 +272,16 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     final buffer = StringBuffer();
 
     // fromFirestore
-    buffer.writeln('// From Map Method');
     buffer.writeln(
-        '$className _\$${className}FromFirestore(Map<String,dynamic> map) {');
+        '$className _\$${className}FromFirestore(DocumentSnapshot doc) {');
 
     buffer.writeln('try {');
+    buffer.writeln('Map map = doc.data() as Map<String, dynamic>;');
 
     buffer.writeln('return ${className}(');
-    for (final field in visitor.fields.keys) {
-      final fieldName =
-          field.startsWith('_') ? field.replaceFirst('_', '') : field;
-      final isModel = visitor.fields[field]!.isModel;
-      final type = visitor.fields[field]!.type;
-
-      if (isModel) {
-        buffer
-            .writeln("$fieldName: ${type}.fromFirestore(map['${fieldName}']),");
-      } else {
-        buffer.writeln("$fieldName: map['${fieldName}'],");
-      }
+    for (final field in visitor.fields.values) {
+      final fieldName = field.fieldName;
+      buffer.writeln('$fieldName: ${fromFieldFirestore(field)},');
     }
     buffer.writeln(');');
 

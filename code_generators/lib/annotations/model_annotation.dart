@@ -6,6 +6,18 @@ class BaseModel {
   final List<BaseModelOptions> options;
 }
 
+// Annotation cho các trường độc nhất
+class UniqueField {
+  const UniqueField();
+}
+
+// Annotation cho các trường tham chiếu
+class TableRef {
+  const TableRef(this.table);
+
+  final String table;
+}
+
 const firestoreBaseModel = BaseModel(options: [BaseModelOptions.firestore]);
 const driftBaseModel = BaseModel(options: [BaseModelOptions.drift]);
 const realtimeBaseModel = BaseModel(options: [BaseModelOptions.realtime]);
