@@ -1,9 +1,3 @@
-targets:
-  $default:
-    builders:
-      flutter_code_generators|annotations:
-        enabled: true      
-
 builders:
   # The next three builders are `SharedPartBuilder` instances.
   # Notice they each have
@@ -14,58 +8,67 @@ builders:
   # `applies_builders` - uses the `combining_builder` from `source_gen` to
   #   combine the parts from each builder into one part file.
 
-  modelGenerator:
-    target: ":modelGenerator"
-    import: "package:flutter_code_generators/generators.dart"
-    builder_factories: ["generateModelMethods"]
-    build_extensions: { ".dart": [".kg_model.dart"] }
+  model_generator:    
+    import: "package:flutter_code_generator/builder.dart"
+    builder_factories: ["modelGeneratorBuilder"]
+    build_extensions: { ".dart": ["model_generator.g.part"] }
     auto_apply: dependents
-    build_to: source
+    build_to: cache
+    applies_builders: ["source_gen|combining_builder"]
+  
 
-  repositoryGenerator:
-    target: ":repositoryGenerator"
-    import: "package:flutter_code_generators/generators.dart"
-    builder_factories: ["generateRepositoryClass"]
-    build_extensions: { ".dart": [".kg_repository.dart"] }
-    auto_apply: dependents
-    build_to: source  
+#   # modelGenerator:
+#   #   target: ":modelGenerator"
+#   #   import: "package:flutter_code_generators/generators.dart"
+#   #   builder_factories: ["generateModelMethods"]
+#   #   build_extensions: { ".dart": [".g.dart"] }
+#   #   auto_apply: dependents
+#   #   build_to: source
 
-  databaseGenerator:
-    target: ":databaseGenerator"
-    import: "package:flutter_code_generators/generators.dart"
-    builder_factories: ["generateDatabaseClass"]
-    build_extensions: { ".dart": [".kg_database.dart"] }
-    auto_apply: dependents
-    build_to: source    
+# #   # repositoryGenerator:
+# #   #   target: ":repositoryGenerator"
+# #   #   import: "package:flutter_code_generators/generators.dart"
+# #   #   builder_factories: ["generateRepositoryClass"]
+# #   #   build_extensions: { ".dart": [".kg_repository.dart"] }
+# #   #   auto_apply: dependents
+# #   #   build_to: source  
 
-  # repositoryGenerator:
-  #   target: ":repositoryGenerator"
-  #   import: "package:flutter_code_generators/generators.dart"
-  #   builder_factories: ["generateRepositoryBaseMethods"]
-  #   build_extensions: { ".dart": [".base.dart"] }
-  #   auto_apply: dependents
-  #   build_to: source    
+# #   # databaseGenerator:
+# #   #   target: ":databaseGenerator"
+# #   #   import: "package:flutter_code_generators/generators.dart"
+# #   #   builder_factories: ["generateDatabaseClass"]
+# #   #   build_extensions: { ".dart": [".kg_database.dart"] }
+# #   #   auto_apply: dependents
+# #   #   build_to: source    
+
+# #   # repositoryGenerator:
+# #   #   target: ":repositoryGenerator"
+# #   #   import: "package:flutter_code_generators/generators.dart"
+# #   #   builder_factories: ["generateRepositoryBaseMethods"]
+# #   #   build_extensions: { ".dart": [".base.dart"] }
+# #   #   auto_apply: dependents
+# #   #   build_to: source    
     
-  # firebaseBuilder:
-  #   target: ":firebaseBuilder"
-  #   import: "package:flutter_code_generators/generators.dart"
-  #   builder_factories: ["firebaseBuilder"]
-  #   build_extensions: { ".dart": [".firebase.dart"] }
-  #   auto_apply: dependents
-  #   build_to: source
+# #   # firebaseBuilder:
+# #   #   target: ":firebaseBuilder"
+# #   #   import: "package:flutter_code_generators/generators.dart"
+# #   #   builder_factories: ["firebaseBuilder"]
+# #   #   build_extensions: { ".dart": [".firebase.dart"] }
+# #   #   auto_apply: dependents
+# #   #   build_to: source
 
-  # blocBuilder:
-  #   target: ":blocBuilder"
-  #   import: "package:models_generators/builder.dart"
-  #   builder_factories: ["blocBuilder"]
-  #   build_extensions: { ".model.dart": [".e.dart"] }
-  #   auto_apply: dependents
-  #   build_to: source
+# #   # blocBuilder:
+# #   #   target: ":blocBuilder"
+# #   #   import: "package:models_generators/builder.dart"
+# #   #   builder_factories: ["blocBuilder"]
+# #   #   build_extensions: { ".model.dart": [".e.dart"] }
+# #   #   auto_apply: dependents
+# #   #   build_to: source
 
-  # blocsBuilder:
-  #   target: ":blocsBuilder"
-  #   import: "package:models_generators/builder.dart"
-  #   builder_factories: ["blocsBuilder"]
-  #   build_extensions: { ".model.dart": [".e.dart"] }
-  #   auto_apply: dependents
-  #   build_to: source
+# #   # blocsBuilder:
+# #   #   target: ":blocsBuilder"
+# #   #   import: "package:models_generators/builder.dart"
+# #   #   builder_factories: ["blocsBuilder"]
+# #   #   build_extensions: { ".model.dart": [".e.dart"] }
+# #   #   auto_apply: dependents
+# #   #   build_to: source

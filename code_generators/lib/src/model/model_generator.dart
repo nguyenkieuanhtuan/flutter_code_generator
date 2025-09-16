@@ -1,14 +1,11 @@
 // ignore_for_file: lines_longer_than_80_chars
 
-import 'dart:convert';
-
 import 'package:build/src/builder/build_step.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:source_gen/source_gen.dart';
 
-import '../../annotations/annotations.dart';
-
-import '../model_visitor.dart';
+import '../../annotations.dart';
+import 'model_visitor.dart';
 
 class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
   @override
@@ -27,19 +24,29 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     final buffer = StringBuffer();
     buffer.writeln('// Options: ${options}');
     buffer.writeln('// ${visitor.log}');
-    buffer.writeln('// ${visitor.dataFields}');
+    buffer.writeln('// ${visitor.fields}');
     buffer.writeln();
 
     final generatedExtension = generateExtensionMethod(visitor);
     buffer.writeln(generatedExtension);
 
-    final generateToMap = generateToMapMethod(visitor);
-    buffer.writeln(generateToMap);
+    buffer.writeln('// Map');
+    final toMethod = generateToFirestoreMethod(visitor);
+    buffer.writeln(toMethod);
 
-    final generateFromMap = generateFromMapMethod(visitor);
-    buffer.writeln(generateFromMap);
+    final fromMethod = generateFromFirestoreMethod(visitor);
+    buffer.writeln(fromMethod);
 
-    if (options.contains(BaseModelOption.drift)) {
+    if (options.contains(BaseModelOptions.firestore)) {
+      buffer.writeln('// Firestore');
+      final toMethod = generateToFirestoreMethod(visitor);
+      buffer.writeln(toMethod);
+
+      final fromMethod = generateFromFirestoreMethod(visitor);
+      buffer.writeln(fromMethod);
+    }
+
+    if (options.contains(BaseModelOptions.drift)) {
       final generateDriftTable = generateDriftTableMethod(visitor);
       buffer.writeln(generateDriftTable);
 
@@ -62,27 +69,27 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
         "// Extension for a $className class to provide 'copyWith' method");
     buffer.writeln('extension \$${className}Extension on $className {');
 
-    final idField = visitor.dataFields[visitor.idField];
+    final idField = visitor.fields[visitor.idField];
     if (idField != null) {
       buffer.writeln(
-          'bool get hasID => ${idField.type.contains('?') ? '${idField.name} != null &&' : ''} ${idField.name}.isNotEmpty;');
+          'bool get hasID => ${idField.typeName.contains('?') ? '${idField.name} != null &&' : ''} ${idField.name}.isNotEmpty;');
       buffer.writeln();
     }
 
     // --------------------Start copyWith Generation Code--------------------//
     buffer.writeln('$className copyWith({');
-    for (var i = 0; i < visitor.dataFields.length; i++) {
+    for (var i = 0; i < visitor.fields.length; i++) {
       final dataType =
-          visitor.dataFields.values.elementAt(i).type.replaceAll('?', '');
-      final fieldName = visitor.dataFields.keys.elementAt(i);
+          visitor.fields.values.elementAt(i).typeName.replaceAll('?', '');
+      final fieldName = visitor.fields.keys.elementAt(i);
       buffer.writeln(
         '$dataType? $fieldName,',
       );
     }
     buffer.writeln('}) {');
     buffer.writeln('return $className(');
-    for (var i = 0; i < visitor.dataFields.length; i++) {
-      final fieldName = visitor.dataFields.keys.elementAt(i);
+    for (var i = 0; i < visitor.fields.length; i++) {
+      final fieldName = visitor.fields.keys.elementAt(i);
       buffer.writeln(
         '${fieldName}: ${fieldName} ?? this.${fieldName},',
       );
@@ -105,15 +112,14 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     final buffer = StringBuffer();
 
     // toMap
-    buffer.writeln('// To Map Method');
     buffer.writeln(
         'Map<String, dynamic> _\$${className}ToMap($className instance) {');
 
     buffer.writeln('return {');
-    for (final field in visitor.dataFields.keys) {
+    for (final field in visitor.fields.keys) {
       final fieldName =
           field.startsWith('_') ? field.replaceFirst('_', '') : field;
-      final isModel = visitor.dataFields[field]!.isModel;
+      final isModel = visitor.fields[field]!.isModel;
 
       if (isModel) {
         buffer.writeln("'${fieldName}': instance.$fieldName.toMap(),");
@@ -122,35 +128,6 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
       }
     }
     buffer.writeln('};');
-    buffer.writeln('}');
-
-    // toFirebaseDatabaseMap
-    buffer.writeln('// To FirebaseDatabaseMap Method');
-    buffer.writeln(
-        'Map<String, dynamic> _\$${className}ToFirebaseDatabaseMap($className instance) {');
-
-    buffer.writeln('final map = _\$${className}ToMap(instance);');
-    buffer.writeln();
-
-    for (final field in visitor.dataFields.keys) {
-      final fieldName =
-          field.startsWith('_') ? field.replaceFirst('_', '') : field;
-      final isModel = visitor.dataFields[field]!.isModel;
-      final type = visitor.dataFields[field]!.type;
-
-      if (isModel) {
-        buffer.writeln(
-            "map['${fieldName}'] = instance.${fieldName}.toFirebaseDatabaseMap();");
-      } else if (type == 'DateTime') {
-        buffer.writeln(
-            "map['${fieldName}'] = instance.${fieldName}.millisecondsSinceEpoch;");
-      } else if (type == 'DateTime?') {
-        buffer.writeln(
-            "map['${fieldName}'] = instance.${fieldName}?.millisecondsSinceEpoch;");
-      }
-    }
-
-    buffer.writeln('return map;');
     buffer.writeln('}');
 
     return buffer.toString();
@@ -171,14 +148,83 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     buffer.writeln('try {');
 
     buffer.writeln('return ${className}(');
-    for (final field in visitor.dataFields.keys) {
+    for (final field in visitor.fields.keys) {
       final fieldName =
           field.startsWith('_') ? field.replaceFirst('_', '') : field;
-      final isModel = visitor.dataFields[field]!.isModel;
-      final type = visitor.dataFields[field]!.type;
+      final isModel = visitor.fields[field]!.isModel;
+      final type = visitor.fields[field]!.type;
 
       if (isModel) {
         buffer.writeln("$fieldName: ${type}.fromMap(map['${fieldName}']),");
+      } else {
+        buffer.writeln("$fieldName: map['${fieldName}'],");
+      }
+    }
+    buffer.writeln(');');
+
+    buffer.writeln('} catch (e) {');
+    buffer.writeln('rethrow;');
+    buffer.writeln('}');
+
+    buffer.writeln('}');
+
+    return buffer.toString();
+  }
+
+  //MARK: - Firestore
+  String generateToFirestoreMethod(ModelVisitor visitor) {
+    // Class name from model visitor
+    final className = visitor.modelClassName;
+
+    // Buffer to write each part of generated class
+    final buffer = StringBuffer();
+
+    // toFirestore
+    buffer.writeln(
+        'Map<String, dynamic> _\$${className}ToFirestore($className instance) {');
+
+    buffer.writeln('return {');
+    for (final field in visitor.fields.keys) {
+      final fieldName =
+          field.startsWith('_') ? field.replaceFirst('_', '') : field;
+      final isModel = visitor.fields[field]!.isModel;
+
+      if (isModel) {
+        buffer.writeln("'${fieldName}': instance.$fieldName.toFirestore(),");
+      } else {
+        buffer.writeln("'${fieldName}': instance.$fieldName,");
+      }
+    }
+    buffer.writeln('};');
+    buffer.writeln('}');
+
+    return buffer.toString();
+  }
+
+  String generateFromFirestoreMethod(ModelVisitor visitor) {
+    // Class name from model visitor
+    final className = visitor.modelClassName;
+
+    // Buffer to write each part of generated class
+    final buffer = StringBuffer();
+
+    // fromFirestore
+    buffer.writeln('// From Map Method');
+    buffer.writeln(
+        '$className _\$${className}FromFirestore(Map<String,dynamic> map) {');
+
+    buffer.writeln('try {');
+
+    buffer.writeln('return ${className}(');
+    for (final field in visitor.fields.keys) {
+      final fieldName =
+          field.startsWith('_') ? field.replaceFirst('_', '') : field;
+      final isModel = visitor.fields[field]!.isModel;
+      final type = visitor.fields[field]!.type;
+
+      if (isModel) {
+        buffer
+            .writeln("$fieldName: ${type}.fromFirestore(map['${fieldName}']),");
       } else {
         buffer.writeln("$fieldName: map['${fieldName}'],");
       }
@@ -206,7 +252,7 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     buffer.writeln('/// Table for Drift database');
     buffer.writeln('class ${className}Table extends Table {');
 
-    for (final dataField in visitor.dataFields.values) {
+    for (final dataField in visitor.fields.values) {
       final fieldColumn = _createTableColumn(dataField);
 
       if (fieldColumn.isNotEmpty) {
@@ -224,7 +270,7 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     buffer.writeln('}');
 
     //Converter
-    for (final dataField in visitor.dataFields.values) {
+    for (final dataField in visitor.fields.values) {
       if (dataField.isListModel) {
         final converter = _createConverter(dataField);
 
@@ -237,9 +283,9 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     return buffer.toString();
   }
 
-  String _createTableColumn(DataField dataField) {
-    final dataType = dataField.type.replaceAll('?', '');
-    final isNullable = dataField.type.endsWith('?');
+  String _createTableColumn(FieldElement dataField) {
+    final dataType = dataField.typeName.replaceAll('?', '');
+    final isNullable = dataField.typeName.endsWith('?');
     final fieldName = dataField.name.startsWith('_')
         ? dataField.name.replaceFirst('_', '')
         : dataField.name;
@@ -291,9 +337,9 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     }
   }
 
-  String _createConverter(DataField dataField) {
-    final dataType = dataField.type.replaceAll('?', '');
-    final isNullable = dataField.type.endsWith('?');
+  String _createConverter(FieldElement dataField) {
+    final dataType = dataField.typeName.replaceAll('?', '');
+    final isNullable = dataField.typeName.endsWith('?');
     final fieldName = dataField.name.startsWith('_')
         ? dataField.name.replaceFirst('_', '')
         : dataField.name;
@@ -356,15 +402,15 @@ static JsonTypeConverter<$className, String> converter =
 
     buffer.writeln('var companion = ${className}TableCompanion.insert(');
 
-    for (final dataField in visitor.dataFields.values) {
+    for (final dataField in visitor.fields.values) {
       // final dataType = dataField.type.replaceAll('?', '');
-      final isNullable = dataField.type.endsWith('?');
+      final isNullable = dataField.typeName.endsWith('?');
       final fieldName = dataField.name.startsWith('_')
           ? dataField.name.replaceFirst('_', '')
           : dataField.name;
       // final isModel = dataField.isModel;
       if (dataField.isListModel) {
-        final model = _getDataTypeInListRegex(dataField.type);
+        final model = _getDataTypeInListRegex(dataField.typeName);
         buffer.writeln(
             '$fieldName: ${isNullable ? 'Value(${model}Items(items: instance.$fieldName))' : '${model}Items(items: instance.$fieldName)'},');
       } else if (fieldName == visitor.idField) {
@@ -387,7 +433,7 @@ static JsonTypeConverter<$className, String> converter =
 
     buffer.writeln('try {');
     buffer.writeln('return $modelClassName(');
-    for (final dataField in visitor.dataFields.values) {
+    for (final dataField in visitor.fields.values) {
       // final dataType = dataField.type.replaceAll('?', '');
       // final isNullable = dataField.type.endsWith('?');
       final fieldName = dataField.name.startsWith('_')

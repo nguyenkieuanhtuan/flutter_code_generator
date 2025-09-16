@@ -4,6 +4,7 @@
 dev_dependencies:
     flutter_code_generators:
         url: https://github.com/nguyenkieuanhtuan/flutter_code_generator.git
+        path: code_generators
 
 - Run
     dart run build_runner build
