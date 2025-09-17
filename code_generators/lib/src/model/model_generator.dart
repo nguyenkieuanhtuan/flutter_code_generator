@@ -6,20 +6,19 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:source_gen/source_gen.dart';
 
 import '../../annotations.dart';
+import '../utils.dart';
 import 'model_visitor.dart';
 
 class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
   @override
   String generateForAnnotatedElement(
       Element element, ConstantReader annotation, BuildStep buildStep) {
-    final visitor = ModelVisitor();
+    final visitor = ModelVisitor(annotation);
     element.visitChildren(visitor);
-
-    final options = getOptions(annotation);
 
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
-    buffer.writeln('// Options: ${options}');
+    buffer.writeln('// Options: ${visitor.databaseTypes}');
     buffer.writeln('// ${visitor.log}');
     buffer.writeln('// ${visitor.fields}');
     buffer.writeln();
@@ -34,7 +33,7 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     final fromMethod = generateFromMapMethod(visitor);
     buffer.writeln(fromMethod);
 
-    if (options.contains(BaseModelOptions.firestore)) {
+    if (visitor.databaseTypes.contains(DatabaseType.firestore)) {
       buffer.writeln('// Firestore');
       final toMethod = generateToFirestoreMethod(visitor);
       buffer.writeln(toMethod);
@@ -43,7 +42,7 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
       buffer.writeln(fromMethod);
     }
 
-    if (options.contains(BaseModelOptions.drift)) {
+    if (visitor.databaseTypes.contains(DatabaseType.drift)) {
       final generateDriftTable = generateDriftTableMethod(visitor);
       buffer.writeln(generateDriftTable);
 
@@ -54,25 +53,10 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     return buffer.toString();
   }
 
-  List<BaseModelOptions> getOptions(ConstantReader annotation) {
-    final optionsReader = annotation.read('options');
-    final optionsList = optionsReader.listValue;
-
-    final selectedOptions = <BaseModelOptions>[];
-    for (final option in optionsList) {
-      // Lấy tên của enum dưới dạng chuỗi
-      final enumName = option.getField('index')!.toIntValue()!;
-      final enumValue = BaseModelOptions.values[enumName];
-      selectedOptions.add(enumValue);
-    }
-
-    return selectedOptions;
-  }
-
   //MARK:- Extension
   String generateExtensionMethod(ModelVisitor visitor) {
     // Class name from model visitor
-    final className = visitor.modelClassName;
+    final className = visitor.className;
 
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
@@ -134,7 +118,7 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
 
   String generateToMapMethod(ModelVisitor visitor) {
     // Class name from model visitor
-    final className = visitor.modelClassName;
+    final className = visitor.className;
 
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
@@ -177,7 +161,7 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
 
   String generateFromMapMethod(ModelVisitor visitor) {
     // Class name from model visitor
-    final className = visitor.modelClassName;
+    final className = visitor.className;
 
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
@@ -223,7 +207,7 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
 
   String generateToFirestoreMethod(ModelVisitor visitor) {
     // Class name from model visitor
-    final className = visitor.modelClassName;
+    final className = visitor.className;
 
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
@@ -266,7 +250,7 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
 
   String generateFromFirestoreMethod(ModelVisitor visitor) {
     // Class name from model visitor
-    final className = visitor.modelClassName;
+    final className = visitor.className;
 
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
@@ -297,7 +281,7 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
   //MARK: - Drift
   String generateDriftTableMethod(ModelVisitor visitor) {
     // Class name from model visitor
-    final className = visitor.baseClassName;
+    final className = visitor.nameWithoutSuffix;
 
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
@@ -314,11 +298,11 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
       }
     }
 
-    if (visitor.idField.isNotEmpty) {
+    if (visitor.idField != null) {
       buffer.writeln();
       buffer.writeln('@override');
       buffer.writeln(
-          'Set<Column<Object>>? get primaryKey => {${visitor.idField}};');
+          'Set<Column<Object>>? get primaryKey => {${visitor.idField!.name}};');
     }
 
     buffer.writeln('}');
@@ -444,8 +428,8 @@ static JsonTypeConverter<$className, String> converter =
 
   String generateDriftCompanionMethod(ModelVisitor visitor) {
     // Class name from model visitor
-    final className = visitor.baseClassName;
-    final modelClassName = visitor.modelClassName;
+    final className = visitor.nameWithoutSuffix;
+    final modelClassName = visitor.className;
 
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
@@ -467,7 +451,7 @@ static JsonTypeConverter<$className, String> converter =
         final model = _getDataTypeInListRegex(dataField.typeName);
         buffer.writeln(
             '$fieldName: ${isNullable ? 'Value(${model}Items(items: instance.$fieldName))' : '${model}Items(items: instance.$fieldName)'},');
-      } else if (fieldName == visitor.idField) {
+      } else if (fieldName == visitor.idField?.name) {
         buffer.writeln(
             '$fieldName:  ${isNullable ? 'Value(id ?? instance.$fieldName)' : 'id ?? instance.$fieldName'},');
       } else {

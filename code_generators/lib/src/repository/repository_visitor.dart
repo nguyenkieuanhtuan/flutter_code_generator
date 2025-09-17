@@ -37,100 +37,47 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE. */
 
+import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/dart/element/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
-import 'package:analyzer/dart/element/type.dart';
 import 'package:source_gen/source_gen.dart';
 
 import '../../annotations.dart';
+import '../model/model_visitor.dart';
 import '../utils.dart';
 
-class DataField {
-  final String name;
-  final String type;
-  final String comment;
-  final bool isEnum;
-  final bool isModel;
-  final bool isListModel;
-  final String tableRef;
-  final bool isUnique;
-
-  DataField(
-      {required this.name,
-      required this.type,
-      this.comment = '',
-      this.isEnum = false,
-      this.isModel = false,
-      this.tableRef = '',
-      this.isListModel = false,
-      this.isUnique = false});
-
-  static String _getStoreTableRegex(String input) {
-    final regex = RegExp(r'Ref\((.*?)\)'); // Biểu thức chính quy
-    final Match? match = regex.firstMatch(input);
-    if (match != null) {
-      return match.group(1) ?? ''; // Trả về group 1 (nội dung trong ngoặc)
-    } else {
-      return '';
-    }
-  }
-
-  static bool isFieldEnum(FieldElement field) {
-    final fieldType = field.type;
-
-    // 1. Check if the type is a class. Enums are represented as classes.
-    if (fieldType is! InterfaceType) {
-      return false;
-    }
-
-    final interfaceType = fieldType;
-    final Element? element = interfaceType.element;
-
-    // 2. Check if the class element is an enum.
-    if (element is! EnumElement) {
-      return false;
-    }
-
-    return true;
-  }
-
-  factory DataField.fromElement(FieldElement element) {
-    final lowerCase = element.documentationComment?.toLowerCase() ?? '';
-
-    final isModel =
-        lowerCase.contains('ismodel') || lowerCase.contains('model');
-    final isListModel =
-        lowerCase.contains('islist') || lowerCase.contains('list');
-    final isUnique =
-        lowerCase.contains('isunique') || lowerCase.contains('unique');
-    final ref = _getStoreTableRegex(element.documentationComment ?? '');
-    final elementType = element.type.toString();
-
-    return DataField(
-        name: element.name,
-        type: elementType.replaceFirst('*', ''),
-        isModel: isModel,
-        isEnum: isFieldEnum(element),
-        tableRef: ref,
-        isListModel: isListModel,
-        isUnique: isUnique);
-  }
-
-  @override
-  String toString() {
-    return 'Name:$name type:$type isEnum:$isEnum isListModel:$isListModel tabbleRef:$tableRef';
-  }
-}
-
-class ModelVisitor extends SimpleElementVisitor<void> {
-  final suffix = 'Model';
+class RepositoryVisitor extends SimpleElementVisitor<void> {
+  final suffix = 'Repository';
 
   final ConstantReader annotation;
 
-  ModelVisitor(this.annotation) {
+  RepositoryVisitor(this.annotation) {
     // Ngay lập tức đọc thuộc tính và lưu trữ
+    _collectionName = annotation.read('collectionName').literalValue as String?;
     _databaseTypes = Utilities.getDatabaseTypes(annotation);
+
+    final modelType = annotation.read('model').typeValue;
+    if (!(modelType is! InterfaceType)) {
+      _modelClassElement = modelType.element as ClassElement;
+
+      if (_modelClassElement != null) {
+        final modelAnnotation = Utilities.modelAnnotation(_modelClassElement!);
+        if (modelAnnotation != null) {
+          _modelVisitor = ModelVisitor(modelAnnotation);
+          _modelClassElement!.visitChildren(_modelVisitor!);
+        }
+      }
+    }
   }
+
+  ClassElement? _modelClassElement;
+  ClassElement? get modelClassElement => _modelClassElement;
+
+  ModelVisitor? _modelVisitor;
+  ModelVisitor? get modelVisitor => _modelVisitor;
+
+  String? _collectionName;
+  String? get collectionName => _collectionName;
 
   List<DatabaseType> _databaseTypes = [];
   List<DatabaseType> get databaseTypes => _databaseTypes;
@@ -140,7 +87,6 @@ class ModelVisitor extends SimpleElementVisitor<void> {
 
   Map<String, FieldElement> fields = <String, FieldElement>{};
   Map<String, MethodElement> methods = <String, MethodElement>{};
-  FieldElement? idField;
 
   String log = 'Log: ';
 
@@ -161,10 +107,6 @@ class ModelVisitor extends SimpleElementVisitor<void> {
   @override
   void visitFieldElement(FieldElement element) {
     log = '$log visitFieldElement ${element.name} ${element.type.toString()}';
-
-    if (element.isId) {
-      idField = element;
-    }
 
     // DartType ends with '*', which needs to be eliminated
     // for the generated code to be accurate.

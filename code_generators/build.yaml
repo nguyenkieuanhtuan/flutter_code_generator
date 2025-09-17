@@ -15,23 +15,14 @@ builders:
     auto_apply: dependents
     build_to: cache
     applies_builders: ["source_gen|combining_builder"]
-  
 
-#   # modelGenerator:
-#   #   target: ":modelGenerator"
-#   #   import: "package:flutter_code_generators/generators.dart"
-#   #   builder_factories: ["generateModelMethods"]
-#   #   build_extensions: { ".dart": [".g.dart"] }
-#   #   auto_apply: dependents
-#   #   build_to: source
-
-# #   # repositoryGenerator:
-# #   #   target: ":repositoryGenerator"
-# #   #   import: "package:flutter_code_generators/generators.dart"
-# #   #   builder_factories: ["generateRepositoryClass"]
-# #   #   build_extensions: { ".dart": [".kg_repository.dart"] }
-# #   #   auto_apply: dependents
-# #   #   build_to: source  
+  repository_generator:    
+    import: "package:flutter_code_generator/builder.dart"
+    builder_factories: ["repositoryGeneratorBuilder"]
+    build_extensions: { ".dart": ["repository_generator.g.part"] }
+    auto_apply: dependents
+    build_to: cache
+    applies_builders: ["source_gen|combining_builder"]
 
 # #   # databaseGenerator:
 # #   #   target: ":databaseGenerator"

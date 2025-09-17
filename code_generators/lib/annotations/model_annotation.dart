@@ -1,14 +1,18 @@
-enum BaseModelOptions { drift, realtime, server, firestore }
+import 'database_type.dart';
 
 class BaseModel {
-  const BaseModel({required this.options});
+  const BaseModel({required this.types});
 
-  final List<BaseModelOptions> options;
+  final List<DatabaseType> types;
 }
 
 // Annotation cho các trường độc nhất
 class UniqueField {
   const UniqueField();
+}
+
+class IdField {
+  const IdField();
 }
 
 // Annotation cho các trường tham chiếu
@@ -18,15 +22,15 @@ class TableRef {
   final String table;
 }
 
-const firestoreBaseModel = BaseModel(options: [BaseModelOptions.firestore]);
-const driftBaseModel = BaseModel(options: [BaseModelOptions.drift]);
-const realtimeBaseModel = BaseModel(options: [BaseModelOptions.realtime]);
-const serverBaseModel = BaseModel(options: [BaseModelOptions.server]);
+const firestoreBaseModel = BaseModel(types: [DatabaseType.firestore]);
+const driftBaseModel = BaseModel(types: [DatabaseType.drift]);
+const realtimeBaseModel = BaseModel(types: [DatabaseType.realtime]);
+const serverBaseModel = BaseModel(types: [DatabaseType.server]);
 const driftAndServerBaseModel =
-    BaseModel(options: [BaseModelOptions.drift, BaseModelOptions.server]);
-const allBaseModel = BaseModel(options: [
-  BaseModelOptions.drift,
-  BaseModelOptions.realtime,
-  BaseModelOptions.server,
-  BaseModelOptions.firestore,
+    BaseModel(types: [DatabaseType.drift, DatabaseType.server]);
+const allBaseModel = BaseModel(types: [
+  DatabaseType.drift,
+  DatabaseType.realtime,
+  DatabaseType.server,
+  DatabaseType.firestore,
 ]);
