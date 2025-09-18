@@ -24,6 +24,14 @@ builders:
     build_to: cache
     applies_builders: ["source_gen|combining_builder"]
 
+  bloc_generator:    
+    import: "package:flutter_code_generator/builder.dart"
+    builder_factories: ["blocGeneratorBuilder"]
+    build_extensions: { ".dart": ["bloc_generator.g.part"] }
+    auto_apply: dependents
+    build_to: cache
+    applies_builders: ["source_gen|combining_builder"]
+
 # #   # databaseGenerator:
 # #   #   target: ":databaseGenerator"
 # #   #   import: "package:flutter_code_generators/generators.dart"

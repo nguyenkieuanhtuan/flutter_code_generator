@@ -5,7 +5,7 @@ import 'package:build/src/builder/build_step.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:source_gen/source_gen.dart';
 
-import '../../annotations.dart';
+import '../../annotations/annotations.dart';
 import '../utils.dart';
 import 'model_visitor.dart';
 
@@ -13,7 +13,13 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
   @override
   String generateForAnnotatedElement(
       Element element, ConstantReader annotation, BuildStep buildStep) {
-    final visitor = ModelVisitor(annotation);
+
+    if (element is! ClassElement) {
+      throw Exception('@BaseRepository required on class');
+    }    
+    
+    final visitor =
+        ModelVisitor(annotation: annotation, className: element.name);
     element.visitChildren(visitor);
 
     // Buffer to write each part of generated class

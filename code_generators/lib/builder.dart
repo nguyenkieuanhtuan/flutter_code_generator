@@ -1,6 +1,7 @@
 import 'package:build/build.dart';
 import 'package:source_gen/source_gen.dart';
 
+import 'src/flutter_bloc/cubit_generator.dart';
 import 'src/model/model_generator.dart';
 import 'src/repository/repository_generator.dart';
 
@@ -9,6 +10,9 @@ Builder modelGeneratorBuilder(BuilderOptions options) =>
 
 Builder repositoryGeneratorBuilder(BuilderOptions options) =>
     SharedPartBuilder([RepositoryGenerator()], 'repository_generator');
+
+Builder blocGeneratorBuilder(BuilderOptions options) =>
+    SharedPartBuilder([CubitGenerator()], 'bloc_generator');
 
 // Builder generateDatabaseClass(BuilderOptions options) {
 //   // Step 1

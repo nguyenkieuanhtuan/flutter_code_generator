@@ -42,33 +42,55 @@ import 'package:analyzer/dart/element/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:source_gen/source_gen.dart';
 
-import '../../annotations.dart';
+import '../../annotations/annotations.dart';
 import '../model/model_visitor.dart';
 import '../utils.dart';
 
+/// RepositoryVisitor
 class RepositoryVisitor extends SimpleElementVisitor<void> {
   final suffix = 'Repository';
 
   final ConstantReader annotation;
 
-  RepositoryVisitor(this.annotation) {
+  RepositoryVisitor({required this.annotation, required this.className}) {
     // Ngay lập tức đọc thuộc tính và lưu trữ
-    _collectionName = annotation.read('collectionName').literalValue as String?;
+
+    nameWithoutSuffix = Utilities.removeSuffix(className, suffix);
+
+    _collectionName =
+        annotation.read('collectionName').literalValue as String? ??
+            nameWithoutSuffix.toLowerCase();
     _databaseTypes = Utilities.getDatabaseTypes(annotation);
+    _parentCollectionNames = annotation
+        .read('parentCollectionNames')
+        .listValue
+        .map((e) => e.toStringValue()!)
+        .toList();
 
     final modelType = annotation.read('model').typeValue;
     if (!(modelType is! InterfaceType)) {
       _modelClassElement = modelType.element as ClassElement;
 
       if (_modelClassElement != null) {
-        final modelAnnotation = Utilities.modelAnnotation(_modelClassElement!);
+        _modelClassName = _modelClassElement!.name;
+
+        final modelAnnotation =
+            Utilities.getAnnotationOfType(_modelClassElement!, BaseModel);
         if (modelAnnotation != null) {
-          _modelVisitor = ModelVisitor(modelAnnotation);
+          _modelVisitor = ModelVisitor(
+              annotation: modelAnnotation, className: _modelClassElement!.name);
           _modelClassElement!.visitChildren(_modelVisitor!);
         }
       }
     }
+
+    if (_modelClassName == null) {
+      _modelClassName = '${nameWithoutSuffix}Model';
+    }
   }
+
+  String? _modelClassName;
+  String get modelClassName => _modelClassName!;
 
   ClassElement? _modelClassElement;
   ClassElement? get modelClassElement => _modelClassElement;
@@ -76,8 +98,13 @@ class RepositoryVisitor extends SimpleElementVisitor<void> {
   ModelVisitor? _modelVisitor;
   ModelVisitor? get modelVisitor => _modelVisitor;
 
+  String get modelIdName => _modelVisitor?.idName ?? 'id';
+
   String? _collectionName;
-  String? get collectionName => _collectionName;
+  String get collectionName => _collectionName!;
+
+  List<String> _parentCollectionNames = [];
+  List<String> get parentCollectionNames => _parentCollectionNames;
 
   List<DatabaseType> _databaseTypes = [];
   List<DatabaseType> get databaseTypes => _databaseTypes;
@@ -90,19 +117,19 @@ class RepositoryVisitor extends SimpleElementVisitor<void> {
 
   String log = 'Log: ';
 
-  @override
-  void visitConstructorElement(ConstructorElement element) {
-    log = '$log visitConstructorElement ${element.documentationComment}';
+  // @override
+  // void visitConstructorElement(ConstructorElement element) {
+  //   log = '$log visitConstructorElement ${element.documentationComment}';
 
-    final elementReturnType = element.type.returnType.toString();
+  //   final elementReturnType = element.type.returnType.toString();
 
-    // DartType ends with '*', which needs to be eliminated
-    // for the generated code to be accurate.
-    className = elementReturnType.replaceFirst('*', '');
-    nameWithoutSuffix = className.endsWith(suffix)
-        ? className.substring(0, className.length - suffix.length)
-        : className;
-  }
+  //   // DartType ends with '*', which needs to be eliminated
+  //   // for the generated code to be accurate.
+  //   className = elementReturnType.replaceFirst('*', '');
+  //   nameWithoutSuffix = className.endsWith(suffix)
+  //       ? className.substring(0, className.length - suffix.length)
+  //       : className;
+  // }
 
   @override
   void visitFieldElement(FieldElement element) {

@@ -37,8 +37,9 @@ DEALINGS IN THE SOFTWARE. */
 
 library annotations;
 
-export 'annotations/database_type.dart';
-export 'annotations/subclass_method.dart';
-export 'annotations/model_annotation.dart';
-export 'annotations/database_annotation.dart';
-export 'annotations/repository_annotation.dart';
+export 'src/database_type.dart';
+export 'src/subclass_method.dart';
+export 'src/model_annotation.dart';
+export 'src/database_annotation.dart';
+export 'src/repository_annotation.dart';
+export 'src/bloc_annotation.dart';

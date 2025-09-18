@@ -4,7 +4,7 @@ import 'package:build/src/builder/build_step.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:source_gen/source_gen.dart';
 
-import '../annotations.dart';
+import '../annotations/annotations.dart';
 
 import 'database_visitor.dart';
 

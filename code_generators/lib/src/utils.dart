@@ -2,7 +2,7 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:source_gen/source_gen.dart';
 
-import '../annotations.dart';
+import '../annotations/annotations.dart';
 
 class Utilities {
   static String classNameToVariable(String className) {
@@ -35,18 +35,63 @@ class Utilities {
     return selectedOptions;
   }
 
-  static ConstantReader? modelAnnotation(Element element) {
-    const modelChecker = TypeChecker.fromRuntime(BaseModel);
+  static ConstantReader? getAnnotationOfType(Element element, Type type) {
+    final typeChecker = TypeChecker.fromRuntime(type);
 
-    // Tìm annotation @BaseModel trên modelClassElement
-    final modelAnnotation = modelChecker.firstAnnotationOf(element);
+    // Tìm annotation [type] trên [element]
+    final annotaton = typeChecker.firstAnnotationOf(element);
 
-    if (modelAnnotation == null) {
+    if (annotaton == null) {
       return null;
     }
 
-    // Bây giờ bạn có thể truy cập các thuộc tính của annotation @BaseModel
-    return ConstantReader(modelAnnotation);
+    // Bây giờ bạn có thể truy cập các thuộc tính của annotation [type]
+    return ConstantReader(annotaton);
+  }
+
+  static String toSingular(String pluralWord) {
+    final irregulars = {
+      'children': 'child',
+      'people': 'person',
+      'men': 'man',
+      'women': 'woman',
+      'feet': 'foot',
+      'teeth': 'tooth',
+      'mice': 'mouse',
+    };
+
+    if (irregulars.containsKey(pluralWord)) {
+      return irregulars[pluralWord]!;
+    }
+
+    if (pluralWord.endsWith('ies')) {
+      return pluralWord.substring(0, pluralWord.length - 3) + 'y';
+    }
+
+    if (pluralWord.endsWith('es')) {
+      return pluralWord.substring(0, pluralWord.length - 2);
+    }
+
+    if (pluralWord.endsWith('s')) {
+      return pluralWord.substring(0, pluralWord.length - 1);
+    }
+
+    return pluralWord; // Trả về chính nó nếu không tìm thấy quy tắc nào
+  }
+
+  static String removePrefix(String value, String prefix) {
+    if (value.startsWith(prefix)) {
+      return value.substring(prefix.length);
+    }
+    return value;
+  }
+
+  static String removeSuffix(String value, String suffix) {
+    if (value.endsWith(suffix)) {
+      return value.substring(0, value.length - suffix.length);
+    }
+
+    return value;
   }
 }
 
