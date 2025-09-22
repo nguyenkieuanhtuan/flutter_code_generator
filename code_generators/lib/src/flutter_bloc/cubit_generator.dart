@@ -41,6 +41,15 @@ class CubitGenerator extends GeneratorForAnnotation<BaseCubit> {
     final objectName = visitor.cubitNameWithoutSuffix;
     final modelClassName = visitor.modelClassName;
 
+    final parentsParameters = visitor.repositoryVisitor?.parentCollectionNames
+            .map((p) => 'String ${Utilities.toSingular(p)}Id')
+            .join(', ') ??
+        '';
+    final parentsVariable = visitor.repositoryVisitor?.parentCollectionNames
+            .map((p) => '${Utilities.toSingular(p)}Id')
+            .join(', ') ??
+        '';
+
     // Buffer to write each part of generated class
     final buffer = StringBuffer();
 
@@ -49,17 +58,19 @@ class CubitGenerator extends GeneratorForAnnotation<BaseCubit> {
 
     // Khai báo và khởi tạo repository
     buffer.writeln('  final ${visitor.repositoryClassName} _repository;');
+
     buffer.writeln(
         '  ${visitor.cubitClassName}(this._repository) : super(_repository);');
 
+    buffer.writeln();
     buffer.writeln('// CRUD Methods');
 
     // --------------------Start CRUD Generation Code--------------------//
     buffer.writeln('''
-      Future<void> create$objectName($modelClassName model) async {
+      Future<void> create$objectName(${parentsParameters.isEmpty ? '' : '$parentsParameters, '}$modelClassName model) async {
         emit(${objectName}Loading());
         try {
-          final result = await _repository.create${objectName}(model);
+          final result = await _repository.create${objectName}(${parentsVariable.isEmpty ? '' : '$parentsVariable, '}model);
           emit(${objectName}Loaded(result));
         } catch (e) {
           emit(${objectName}Error('Create $modelClassName error: \$e'));
@@ -68,10 +79,10 @@ class CubitGenerator extends GeneratorForAnnotation<BaseCubit> {
   ''');
 
     buffer.writeln('''
-      Future<void> update$objectName($modelClassName model) async {
+      Future<void> update$objectName(${parentsParameters.isEmpty ? '' : '$parentsParameters, '}$modelClassName model) async {
         emit(${objectName}Loading());
         try {
-          final result = await _repository.update${objectName}(model);
+          final result = await _repository.update${objectName}(${parentsVariable.isEmpty ? '' : '$parentsVariable, '}model);
           emit(${objectName}Loaded(result));
         } catch (e) {
           emit(${objectName}Error('Update $modelClassName error: \$e'));
@@ -80,10 +91,10 @@ class CubitGenerator extends GeneratorForAnnotation<BaseCubit> {
   ''');
 
     buffer.writeln('''
-      Future<void> delete$objectName(String id) async {
+      Future<void> delete$objectName(${parentsParameters.isEmpty ? '' : '$parentsParameters, '}String id) async {
         emit(${objectName}Loading());
         try {
-          await _repository.delete${objectName}(id);
+          await _repository.delete${objectName}(${parentsVariable.isEmpty ? '' : '$parentsVariable, '}id);
           emit(${objectName}Initial());
         } catch (e) {
           emit(${objectName}Error('Delete $modelClassName error: \$e'));
@@ -92,10 +103,10 @@ class CubitGenerator extends GeneratorForAnnotation<BaseCubit> {
   ''');
 
     buffer.writeln('''
-      Future<void> read${objectName}ById(String id) async {
+      Future<void> read${objectName}ById(${parentsParameters.isEmpty ? '' : '$parentsParameters, '}String id) async {
         emit(${objectName}Loading());
         try {
-          final model = await _repository.read${objectName}ById(id);
+          final model = await _repository.read${objectName}ById(${parentsVariable.isEmpty ? '' : '$parentsVariable, '}id);
           if (model != null) {
             emit(${objectName}Loaded(model));
           } else {

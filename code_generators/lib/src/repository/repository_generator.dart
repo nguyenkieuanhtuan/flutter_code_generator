@@ -47,14 +47,6 @@ class RepositoryGenerator extends GeneratorForAnnotation<BaseRepository> {
 
     final modelClassName = visitor.modelClassElement?.name ?? '';
 
-    // Buffer to write each part of generated class
-    final buffer = StringBuffer();
-
-    // buffer.writeln('// ${visitor.log}');
-    // buffer.writeln();
-
-    buffer.writeln('// Firestore');
-
     final parentsParameters = visitor.parentCollectionNames
         .map((p) => 'String ${Utilities.toSingular(p)}Id')
         .join(', ');
@@ -70,6 +62,14 @@ class RepositoryGenerator extends GeneratorForAnnotation<BaseRepository> {
     pathSegments.add(collectionName);
 
     final fullPath = pathSegments.join('/');
+
+    // Buffer to write each part of generated class
+    final buffer = StringBuffer();
+
+    // buffer.writeln('// ${visitor.log}');
+    // buffer.writeln();
+
+    buffer.writeln('// Firestore');
 
     buffer.writeln('''
       CollectionReference collectionRef(${parentsParameters}) => FirebaseFirestore.instance.collection(\'$fullPath\');
