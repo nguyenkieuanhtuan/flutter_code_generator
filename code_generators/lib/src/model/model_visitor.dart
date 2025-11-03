@@ -37,6 +37,8 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE. */
 
+import 'dart:math';
+
 import 'package:analyzer/dart/element/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
@@ -142,7 +144,7 @@ class ModelVisitor extends SimpleElementVisitor<void> {
 
   Map<String, FieldElement> fields = <String, FieldElement>{};
   Map<String, MethodElement> methods = <String, MethodElement>{};
-  
+
   FieldElement? idField;
   String get idName => idField?.name ?? 'id';
 
@@ -164,6 +166,11 @@ class ModelVisitor extends SimpleElementVisitor<void> {
   @override
   void visitFieldElement(FieldElement element) {
     log = '$log visitFieldElement ${element.name} ${element.type.toString()}';
+
+    final getterElement = element.getter;
+    if (getterElement != null && !getterElement.isSynthetic) {
+      return;
+    }
 
     if (element.isId) {
       idField = element;

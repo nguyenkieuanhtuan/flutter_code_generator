@@ -13,11 +13,10 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
   @override
   String generateForAnnotatedElement(
       Element element, ConstantReader annotation, BuildStep buildStep) {
-
     if (element is! ClassElement) {
       throw Exception('@BaseRepository required on class');
-    }    
-    
+    }
+
     final visitor =
         ModelVisitor(annotation: annotation, className: element.name);
     element.visitChildren(visitor);
@@ -250,6 +249,11 @@ class ModelGenerator extends GeneratorForAnnotation<BaseModel> {
     } else if (field.isEnum) {
       return '$typeName.values[map[\'$fieldName\'] as int]';
     }
+
+    if (typeName == 'DateTime') {
+      return '(map[\'$fieldName\'] as Timestamp).toDate()';
+    }
+
     // Trường hợp DocumentReference hoặc các loại dữ liệu khác
     return 'map[\'$fieldName\'] as $typeName';
   }
